@@ -25,17 +25,26 @@ app.post('/create-room', (req, res) => {
 
 io.on('connection', function (socket) {
   socket.on('joinRoom', async (roomNumber) => {
-    socket.join(roomNumber);
-    let id = String(Math.floor(Math.random() * 10000000));
-    openedRoomList.roomNumber.users[id] = id;
-    io.to(roomNumber).emit('joinSuccess', id);
+    if (!openedRoomList[roomNumber]) socket.leave();
+    await socket.join(roomNumber);
+    let users = Array.from(io.sockets.adapter.rooms.get(roomNumber));
+    let id = users[users.length - 1];
+    openedRoomList.roomNumber.users[id] = {
+      nickname: '',
+    };
+    io.to(roomNumber).emit(
+      'joinSuccess',
+      id,
+      Object.entries(openedRoomList.roomNumber.users),
+    );
     socket.on('setNickname', (id, nickname) => {
       openedRoomList.roomNumber.users[id] = {
         nickname: nickname,
       };
+      console.log('setnickname');
     });
     socket.on('chat', (id, chat) => {
-      console.log(id, chat);
+      console.log(io.sockets.client);
       io.to(roomNumber).emit('chat', id, chat);
     });
     socket.on('disconnect', () => {
