@@ -41,14 +41,16 @@ io.on('connection', function (socket) {
       openedRoomList.roomNumber.users[id] = {
         nickname: nickname,
       };
+      io.to(roomNumber).emit('updateNickname', id, nickname);
       console.log('setnickname');
     });
     socket.on('chat', (id, chat) => {
-      console.log(io.sockets.client);
+      console.log(chat);
       io.to(roomNumber).emit('chat', id, chat);
     });
     socket.on('disconnect', () => {
       socket.leave(roomNumber);
+      console.log(io.sockets.adapter.rooms.get(roomNumber));
     });
   });
 });
