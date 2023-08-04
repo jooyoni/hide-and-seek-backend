@@ -1,6 +1,7 @@
 const express = require('express');
 var cors = require('cors');
 const http = require('http');
+const { disconnect } = require('process');
 const app = express();
 const server = http.createServer(app);
 const io = require('socket.io')(server);
@@ -15,11 +16,9 @@ const openedRoomList = {};
 
 app.post('/create-room', (req, res) => {
   const roomNumber = Math.floor(Math.random() * 100000);
-  // const id = String(Math.floor(Math.random() * 10000000));
   openedRoomList.roomNumber = {
     users: {},
   };
-  // openedRoomList.roomNumber.users[id] = { nickname: '' };
   res.send({ roomNumber, success: true });
 });
 
@@ -31,6 +30,8 @@ io.on('connection', function (socket) {
     let id = users[users.length - 1];
     openedRoomList.roomNumber.users[id] = {
       nickname: '',
+      top: 60,
+      left: 60,
     };
     io.to(roomNumber).emit(
       'joinSuccess',
@@ -38,11 +39,14 @@ io.on('connection', function (socket) {
       Object.entries(openedRoomList.roomNumber.users),
     );
     socket.on('setNickname', (id, nickname) => {
-      openedRoomList.roomNumber.users[id] = {
-        nickname: nickname,
-      };
+      openedRoomList.roomNumber.users[id].nickname = nickname;
       io.to(roomNumber).emit('updateNickname', id, nickname);
       console.log('setnickname');
+    });
+    socket.on('setLocation', (id, location) => {
+      openedRoomList.roomNumber.users[id].top = location.top;
+      openedRoomList.roomNumber.users[id].left = location.left;
+      io.to(roomNumber).emit('updateLocation', id, top, left);
     });
     socket.on('chat', (id, chat) => {
       console.log(chat);
@@ -50,7 +54,8 @@ io.on('connection', function (socket) {
     });
     socket.on('disconnect', () => {
       socket.leave(roomNumber);
-      console.log(io.sockets.adapter.rooms.get(roomNumber));
+      console.log('disconnect');
+      // console.log(io.sockets.adapter.rooms.get(roomNumber));
     });
   });
 });
