@@ -18,6 +18,9 @@ app.post("/create-room", (req, res) => {
     const roomNumber = Math.floor(Math.random() * 100000);
     openedRoomList.roomNumber = {
         users: {},
+        isGaming: false,
+        red: 0,
+        blue: 0,
     };
     res.send({ roomNumber, success: true });
 });
@@ -28,12 +31,20 @@ io.on("connection", function (socket) {
         await socket.join(roomNumber);
         let users = Array.from(io.sockets.adapter.rooms.get(roomNumber));
         let id = users[users.length - 1];
+        let team =
+            openedRoomList.roomNumber.red <= openedRoomList.roomNumber.blue
+                ? "red"
+                : "blue";
+        openedRoomList.roomNumber[team]++;
         openedRoomList.roomNumber.users[id] = {
             nickname: "",
             top: 0,
             left: 0,
+            team: team,
+            isAdmin: users.length == 1 ? true : false,
+            isReady: false,
         };
-        console.log(Object.entries(openedRoomList.roomNumber.users));
+        openedRoomList;
         io.to(roomNumber).emit(
             "joinSuccess",
             id,
@@ -58,6 +69,11 @@ io.on("connection", function (socket) {
             console.log(chat);
             io.to(roomNumber).emit("chat", id, chat);
         });
+        socket.on("ready", (id, isReady) => {
+            openedRoomList.roomNumber.users[id].isReady = isReady;
+            io.to(roomNumber).emit("ready", id, isReady);
+        });
+
         socket.on("disconnect", () => {
             socket.leave(roomNumber);
             console.log("disconnect");
