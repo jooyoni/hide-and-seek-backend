@@ -70,8 +70,14 @@ io.on("connection", function (socket) {
             io.to(roomNumber).emit("chat", id, chat);
         });
         socket.on("ready", (id, isReady) => {
-            openedRoomList.roomNumber.users[id].isReady = isReady;
-            io.to(roomNumber).emit("ready", id, isReady);
+            if (openedRoomList.roomNumber.users[id].isAdmin) {
+                //방장으로부터 발생한 ready일시 게임시작
+                openedRoomList.roomNumber.isGaming = true;
+                io.to(roomNumber).emit("gameStart");
+            } else {
+                openedRoomList.roomNumber.users[id].isReady = isReady;
+                io.to(roomNumber).emit("ready", id, isReady);
+            }
         });
 
         socket.on("disconnect", () => {
