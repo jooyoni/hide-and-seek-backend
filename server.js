@@ -58,6 +58,7 @@ io.on("connection", function (socket) {
         socket.on("setLocation", (id, location) => {
             openedRoomList.roomNumber.users[id].top = location.top;
             openedRoomList.roomNumber.users[id].left = location.left;
+            console.log(openedRoomList.roomNumber.users[id]);
             io.to(roomNumber).emit(
                 "updateLocation",
                 id,
@@ -73,7 +74,16 @@ io.on("connection", function (socket) {
             if (openedRoomList.roomNumber.users[id].isAdmin) {
                 //방장으로부터 발생한 ready일시 게임시작
                 openedRoomList.roomNumber.isGaming = true;
-                io.to(roomNumber).emit("gameStart");
+                Object.keys(openedRoomList.roomNumber.users).map((id) => {
+                    if (openedRoomList.roomNumber.users[id].team == "red")
+                        openedRoomList.roomNumber.users[id].left = -150;
+                    else openedRoomList.roomNumber.users[id].left = 1345;
+                    openedRoomList.roomNumber.users[id].top = 700;
+                });
+                io.to(roomNumber).emit(
+                    "gameStart",
+                    Object.entries(openedRoomList.roomNumber.users)
+                );
             } else {
                 openedRoomList.roomNumber.users[id].isReady = isReady;
                 io.to(roomNumber).emit("ready", id, isReady);
