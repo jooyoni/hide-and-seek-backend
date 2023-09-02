@@ -58,7 +58,6 @@ io.on("connection", function (socket) {
         socket.on("setLocation", (id, location) => {
             openedRoomList.roomNumber.users[id].top = location.top;
             openedRoomList.roomNumber.users[id].left = location.left;
-            console.log(openedRoomList.roomNumber.users[id]);
             io.to(roomNumber).emit(
                 "updateLocation",
                 id,
@@ -89,7 +88,24 @@ io.on("connection", function (socket) {
                 io.to(roomNumber).emit("ready", id, isReady);
             }
         });
-
+        socket.on("attack", (id) => {
+            console.log();
+            let enemy = Object.keys(openedRoomList.roomNumber.users);
+            enemy.map((id) => {
+                console.log(
+                    id +
+                        " " +
+                        openedRoomList.roomNumber.users[id].top +
+                        ` ${openedRoomList.roomNumber.users[id].left}`
+                );
+            });
+            enemy = enemy.filter(
+                (userId) =>
+                    openedRoomList.roomNumber.users[id].team !==
+                    openedRoomList.roomNumber.users[userId].team
+            );
+            io.to(roomNumber).emit("hit", id, enemy);
+        });
         socket.on("disconnect", () => {
             socket.leave(roomNumber);
             console.log("disconnect");
