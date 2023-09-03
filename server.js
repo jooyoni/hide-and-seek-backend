@@ -43,8 +43,10 @@ io.on("connection", function (socket) {
             team: team,
             isAdmin: users.length == 1 ? true : false,
             isReady: false,
+            health: 100,
+            attacked: false,
+            getHitted: false,
         };
-        openedRoomList;
         io.to(roomNumber).emit(
             "joinSuccess",
             id,
@@ -90,20 +92,50 @@ io.on("connection", function (socket) {
         });
         socket.on("attack", (id) => {
             console.log();
+            let attackerLocation = {
+                top: openedRoomList.roomNumber.users[id].top + 25,
+                left: openedRoomList.roomNumber.users[id].left + 25,
+            }; //25 더해주는 이유는 캐릭터의 정중앙
             let enemy = Object.keys(openedRoomList.roomNumber.users);
-            enemy.map((id) => {
-                console.log(
-                    id +
-                        " " +
-                        openedRoomList.roomNumber.users[id].top +
-                        ` ${openedRoomList.roomNumber.users[id].left}`
-                );
-            });
             enemy = enemy.filter(
                 (userId) =>
                     openedRoomList.roomNumber.users[id].team !==
                     openedRoomList.roomNumber.users[userId].team
             );
+            enemy = enemy.filter((userId) => {
+                let topDistance =
+                    Math.max(
+                        attackerLocation.top,
+                        openedRoomList.roomNumber.users[userId].top + 25
+                    ) -
+                    Math.min(
+                        attackerLocation.top,
+                        openedRoomList.roomNumber.users[userId].top + 25
+                    );
+                let sideDistance =
+                    Math.max(
+                        attackerLocation.left,
+                        openedRoomList.roomNumber.users[userId].left + 25
+                    ) -
+                    Math.min(
+                        attackerLocation.left,
+                        openedRoomList.roomNumber.users[userId].left + 25
+                    );
+                const distanceAdvice =
+                    25 +
+                    Math.min(
+                        (Math.min(topDistance, sideDistance) / 90) * 10,
+                        10.3553
+                    );
+                if (
+                    Math.sqrt(topDistance ** 2 + sideDistance ** 2) -
+                        distanceAdvice <=
+                    90
+                )
+                    return true;
+                else return false;
+            });
+            console.log(enemy);
             io.to(roomNumber).emit("hit", id, enemy);
         });
         socket.on("disconnect", () => {
