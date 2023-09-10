@@ -45,7 +45,7 @@ io.on("connection", function (socket) {
             isReady: false,
             health: 100,
             attacked: false,
-            getHitted: false,
+            getHitted: 0,
         };
         io.to(roomNumber).emit(
             "joinSuccess",
@@ -91,7 +91,6 @@ io.on("connection", function (socket) {
             }
         });
         socket.on("attack", (id) => {
-            console.log();
             let attackerLocation = {
                 top: openedRoomList.roomNumber.users[id].top + 25,
                 left: openedRoomList.roomNumber.users[id].left + 25,
