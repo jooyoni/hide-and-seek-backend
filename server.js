@@ -91,6 +91,10 @@ io.on("connection", function (socket) {
             }
         });
         socket.on("attack", (id) => {
+            if (!openedRoomList.roomNumber.isGaming) {
+                io.to(roomNumber).emit("hit", id, []);
+                return;
+            }
             let attackerLocation = {
                 top: openedRoomList.roomNumber.users[id].top + 25,
                 left: openedRoomList.roomNumber.users[id].left + 25,
@@ -134,7 +138,9 @@ io.on("connection", function (socket) {
                     return true;
                 else return false;
             });
-            console.log(enemy);
+            enemy.map((id) => {
+                openedRoomList.roomNumber.users[id].health -= 20;
+            });
             io.to(roomNumber).emit("hit", id, enemy);
         });
         socket.on("disconnect", () => {
