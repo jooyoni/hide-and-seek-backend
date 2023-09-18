@@ -178,11 +178,20 @@ io.on("connection", function (socket) {
             socket.leave(roomNumber);
             let outUserId = "";
             let outUserTeam = "";
-            let users = Array.from(io.sockets.adapter.rooms.get(roomNumber));
+            let users = Array.from(
+                io.sockets.adapter.rooms.get(roomNumber) || []
+            );
+            if (users.length == 0) {
+                delete openedRoomList.roomNumber;
+                return;
+            }
             Object.keys(openedRoomList.roomNumber.users).map((userId) => {
                 if (!users.includes(userId)) {
                     outUserId = userId;
                     outUserTeam = openedRoomList.roomNumber.users[userId].team;
+                    if (openedRoomList.roomNumber.users[userId].isAdmin) {
+                        io.to(roomNumber).emit("adminChange", users[0]);
+                    }
                     delete openedRoomList.roomNumber.users[userId];
                 }
             });
