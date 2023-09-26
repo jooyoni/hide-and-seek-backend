@@ -14,9 +14,9 @@ app.set("port", process.env.PORT || 5000);
 
 const openedRoomList = {};
 
-app.post("/create-room", (req, res) => {
+app.get("/create-room", (req, res) => {
     const roomNumber = Math.floor(Math.random() * 100000);
-    openedRoomList.roomNumber = {
+    openedRoomList[roomNumber] = {
         users: {},
         isGaming: false,
         red: 0,
@@ -24,9 +24,13 @@ app.post("/create-room", (req, res) => {
     };
     res.send({ roomNumber, success: true });
 });
-
+app.get("/join-room/:id", (req, res) => {
+    console.log(openedRoomList);
+    if (openedRoomList[req.params.id]) res.send(true);
+    else res.send(false);
+});
 function respawn(roomNumber) {
-    let room = openedRoomList.roomNumber;
+    let room = openedRoomList[roomNumber];
     let userIds = Object.keys(room.users);
     room.isGaming = false;
     userIds.map((id) => {
@@ -37,16 +41,21 @@ function respawn(roomNumber) {
 
 io.on("connection", function (socket) {
     socket.on("joinRoom", async (roomNumber) => {
-        if (!openedRoomList[roomNumber]) socket.leave();
+        console.log(openedRoomList);
+        socket.leave(roomNumber);
+        if (!openedRoomList[roomNumber]) {
+            socket.leave(roomNumber);
+            return;
+        }
         await socket.join(roomNumber);
         let users = Array.from(io.sockets.adapter.rooms.get(roomNumber));
         let id = users[users.length - 1];
         let team =
-            openedRoomList.roomNumber.red <= openedRoomList.roomNumber.blue
+            openedRoomList[roomNumber].red <= openedRoomList[roomNumber].blue
                 ? "red"
                 : "blue";
-        openedRoomList.roomNumber[team]++;
-        openedRoomList.roomNumber.users[id] = {
+        openedRoomList[roomNumber][team]++;
+        openedRoomList[roomNumber].users[id] = {
             nickname: "",
             top: 0,
             left: 0,
@@ -60,16 +69,16 @@ io.on("connection", function (socket) {
         io.to(roomNumber).emit(
             "joinSuccess",
             id,
-            Object.entries(openedRoomList.roomNumber.users)
+            Object.entries(openedRoomList[roomNumber].users)
         );
         socket.on("setNickname", (id, nickname) => {
-            openedRoomList.roomNumber.users[id].nickname = nickname;
+            openedRoomList[roomNumber].users[id].nickname = nickname;
             io.to(roomNumber).emit("updateNickname", id, nickname);
             console.log("setnickname");
         });
         socket.on("setLocation", (id, location) => {
-            openedRoomList.roomNumber.users[id].top = location.top;
-            openedRoomList.roomNumber.users[id].left = location.left;
+            openedRoomList[roomNumber].users[id].top = location.top;
+            openedRoomList[roomNumber].users[id].left = location.left;
             io.to(roomNumber).emit(
                 "updateLocation",
                 id,
@@ -82,38 +91,39 @@ io.on("connection", function (socket) {
             io.to(roomNumber).emit("chat", id, chat);
         });
         socket.on("ready", (id, isReady) => {
-            if (openedRoomList.roomNumber.users[id].isAdmin) {
+            if (openedRoomList[roomNumber].users[id].isAdmin) {
                 //방장으로부터 발생한 ready일시 게임시작
-                openedRoomList.roomNumber.isGaming = true;
-                Object.keys(openedRoomList.roomNumber.users).map((id) => {
-                    if (openedRoomList.roomNumber.users[id].team == "red")
-                        openedRoomList.roomNumber.users[id].left = -150;
-                    else openedRoomList.roomNumber.users[id].left = 1345;
-                    openedRoomList.roomNumber.users[id].top = 700;
+                openedRoomList[roomNumber].isGaming = true;
+                Object.keys(openedRoomList[roomNumber].users).map((id) => {
+                    if (openedRoomList[roomNumber].users[id].team == "red")
+                        openedRoomList[roomNumber].users[id].left = -150;
+                    else openedRoomList[roomNumber].users[id].left = 1345;
+                    openedRoomList[roomNumber].users[id].top = 700;
                 });
                 io.to(roomNumber).emit(
                     "gameStart",
-                    Object.entries(openedRoomList.roomNumber.users)
+                    Object.entries(openedRoomList[roomNumber].users)
                 );
             } else {
-                openedRoomList.roomNumber.users[id].isReady = isReady;
+                openedRoomList[roomNumber].users[id].isReady = isReady;
                 io.to(roomNumber).emit("ready", id, isReady);
+                console.log("test2");
             }
         });
         socket.on("attack", (id) => {
-            if (!openedRoomList.roomNumber.isGaming) {
+            if (!openedRoomList[roomNumber].isGaming) {
                 io.to(roomNumber).emit("hit", id, []);
                 return;
             }
             let attackerLocation = {
-                top: openedRoomList.roomNumber.users[id].top + 25,
-                left: openedRoomList.roomNumber.users[id].left + 25,
+                top: openedRoomList[roomNumber].users[id].top + 25,
+                left: openedRoomList[roomNumber].users[id].left + 25,
             }; //25 더해주는 이유는 캐릭터의 정중앙
-            let enemy = Object.keys(openedRoomList.roomNumber.users);
+            let enemy = Object.keys(openedRoomList[roomNumber].users);
             enemy = enemy.filter(
                 (userId) =>
-                    openedRoomList.roomNumber.users[id].team !==
-                    openedRoomList.roomNumber.users[userId].team
+                    openedRoomList[roomNumber].users[id].team !==
+                    openedRoomList[roomNumber].users[userId].team
             );
             let allEnemy = [...enemy];
             //공격 범위 내 있는 상대편 유저만 필터링
@@ -121,20 +131,20 @@ io.on("connection", function (socket) {
                 let topDistance =
                     Math.max(
                         attackerLocation.top,
-                        openedRoomList.roomNumber.users[userId].top + 25
+                        openedRoomList[roomNumber].users[userId].top + 25
                     ) -
                     Math.min(
                         attackerLocation.top,
-                        openedRoomList.roomNumber.users[userId].top + 25
+                        openedRoomList[roomNumber].users[userId].top + 25
                     );
                 let sideDistance =
                     Math.max(
                         attackerLocation.left,
-                        openedRoomList.roomNumber.users[userId].left + 25
+                        openedRoomList[roomNumber].users[userId].left + 25
                     ) -
                     Math.min(
                         attackerLocation.left,
-                        openedRoomList.roomNumber.users[userId].left + 25
+                        openedRoomList[roomNumber].users[userId].left + 25
                     );
                 const distanceAdvice =
                     25 +
@@ -152,13 +162,13 @@ io.on("connection", function (socket) {
             });
             //공격 범위 내 있는 상대편 유저만 필터링
             enemy.map((userId) => {
-                openedRoomList.roomNumber.users[userId].health -= 20;
+                openedRoomList[roomNumber].users[userId].health -= 20;
             });
             io.to(roomNumber).emit("hit", id, enemy);
             console.log(allEnemy);
             //살아있는 상대편 유저만 필터링
             allEnemy = allEnemy.filter(
-                (userId) => openedRoomList.roomNumber.users[userId].health > 0
+                (userId) => openedRoomList[roomNumber].users[userId].health > 0
             );
             //살아있는 상대편 유저만 필터링
             console.log(allEnemy);
@@ -168,7 +178,7 @@ io.on("connection", function (socket) {
                 setTimeout(() => {
                     io.to(roomNumber).emit(
                         "gameEnd",
-                        openedRoomList.roomNumber.users[id].team
+                        openedRoomList[roomNumber].users[id].team
                     );
                 }, 3000);
             }
@@ -182,27 +192,30 @@ io.on("connection", function (socket) {
                 io.sockets.adapter.rooms.get(roomNumber) || []
             );
             if (users.length == 0) {
-                delete openedRoomList.roomNumber;
+                delete openedRoomList[roomNumber];
                 return;
             }
-            Object.keys(openedRoomList.roomNumber.users).map((userId) => {
+            Object.keys(openedRoomList[roomNumber].users).map((userId) => {
                 if (!users.includes(userId)) {
                     outUserId = userId;
-                    outUserTeam = openedRoomList.roomNumber.users[userId].team;
-                    if (openedRoomList.roomNumber.users[userId].isAdmin) {
+                    outUserTeam = openedRoomList[roomNumber].users[userId].team;
+                    if (openedRoomList[roomNumber].users[userId].isAdmin) {
+                        openedRoomList[roomNumber].users[
+                            users[0]
+                        ].isAdmin = true;
                         io.to(roomNumber).emit("adminChange", users[0]);
                     }
-                    delete openedRoomList.roomNumber.users[userId];
+                    delete openedRoomList[roomNumber].users[userId];
                 }
             });
             io.to(roomNumber).emit("goOut", outUserId);
-            if (openedRoomList.roomNumber.isGaming) {
+            if (openedRoomList[roomNumber].isGaming) {
                 let isGameEnd = true;
-                Object.keys(openedRoomList.roomNumber.users).map((userId) => {
+                Object.keys(openedRoomList[roomNumber].users).map((userId) => {
                     if (
-                        openedRoomList.roomNumber.users[userId].team ==
+                        openedRoomList[roomNumber].users[userId].team ==
                             outUserTeam &&
-                        openedRoomList.roomNumber.users[userId].health > 0
+                        openedRoomList[roomNumber].users[userId].health > 0
                     )
                         isGameEnd = false;
                 });
@@ -216,7 +229,7 @@ io.on("connection", function (socket) {
                     }, 3000);
                 }
             }
-            openedRoomList.roomNumber[outUserTeam] -= 1;
+            openedRoomList[roomNumber][outUserTeam] -= 1;
         });
     });
 });
